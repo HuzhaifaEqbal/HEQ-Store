@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id             String    @id @default(uuid())
+  googleSsoId    String?   @unique
+  email          String    @unique
+  passwordHash   String?   // Nullable for Google SSO users
+  fullName       String
+  phone          String?
+  address        String?
+  avatar         String?
+  role           Role      @default(USER)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isDeleted      Boolean   @default(false)
+  deletedAt      DateTime?
+
+  // Relations
+  orders         Order[]
+  notifications  Notification[]
+}
+
+// Singleton table for math config and system variables
+model AppSettings {
+  id                    Int      @id @default(1)
+  usdToSypRate          Float    // e.g. 15000
+  customsPercentage     Float    // e.g. 0.15 (15%)
+  shippingCostPerKg     Float    // e.g. 25.0 USD
+  expectedTransitDays   Int      // e.g. 14 days
+  orderProcessingDays   Int      @default(2)
+  profitMarginFixed     Float    @default(0.0) // Fixed amount added to final price
+  profitMarginPercent   Float    @default(0.0) // Percentage added to final price
+  updatedAt             DateTime @updatedAt
+}
+
+model Product {
+  id             String   @id @default(uuid())
+  nameEn         String
+  nameAr         String
+  descriptionEn  String?
+  descriptionAr  String?
+  sourcePriceUsd Float
+  weightKg       Float
+  images         String[]
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  orderItems     OrderItem[]
+}
+
+model Order {
+  id                   String      @id @default(uuid())
+  userId               String
+  status               OrderStatus @default(PENDING)
+  totalPriceSyp        Float       // Snapshot of final price at time of purchase
+  totalPriceUsd        Float       // Original total in USD
+  estimatedDeliveryDate DateTime
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  // Mathematical Snapshot (Preserved to prevent historical data changes if AppSettings change)
+  appliedUsdToSypRate      Float
+  appliedCustomsPercentage Float
+  appliedShippingCostPerKg Float
+
+  // Relations
+  user                 User        @relation(fields: [userId], references: [id])
+  items                OrderItem[]
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  
+  // Snapshots for this specific item
+  priceUsd        Float
+  priceSyp        Float
+  weightKg        Float
+
+  // Relations
+  order           Order    @relation(fields: [orderId], references: [id])
+  product         Product  @relation(fields: [productId], references: [id])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  titleEn     String
+  titleAr     String
+  bodyEn      String
+  bodyAr      String
+  htmlContent String?  // Rich HTML/Card notification payload (or JSON UI block)
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id])
+}
