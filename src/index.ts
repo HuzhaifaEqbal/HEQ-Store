@@ -7,9 +7,13 @@ app.use(express.json());
 
 // Auth Routes
 app.post('/api/auth/register', AuthController.register);
+app.post('/api/auth/verify-otp', AuthController.verifyOtp);
 app.post('/api/auth/login', AuthController.login);
 app.post('/api/auth/google', AuthController.googleSSO);
-app.delete('/api/auth/account', AuthController.deleteAccount);
+app.post('/api/auth/forgot-password', AuthController.forgotPassword);
+app.post('/api/auth/reset-password', AuthController.resetPassword);
+app.post('/api/auth/delete/request', AuthController.requestDeleteAccount);
+app.post('/api/auth/delete/confirm', AuthController.confirmDeleteAccount);
 
 // Pricing Example Route
 app.post('/api/pricing/calculate', async (req, res) => {
