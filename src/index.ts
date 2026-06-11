@@ -15,6 +15,20 @@ app.post('/api/auth/reset-password', AuthController.resetPassword);
 app.post('/api/auth/delete/request', AuthController.requestDeleteAccount);
 app.post('/api/auth/delete/confirm', AuthController.confirmDeleteAccount);
 
+import { EscrowController } from './controllers/EscrowController';
+import { DelegateController } from './controllers/DelegateController';
+
+// Escrow & Wallet Routes
+app.post('/api/escrow/hold', EscrowController.holdFunds);
+app.post('/api/escrow/release', EscrowController.releaseFunds);
+app.post('/api/escrow/refund', EscrowController.refundFunds);
+app.post('/api/wallet/deposit', EscrowController.depositToWallet);
+
+// Delegate Routes
+app.post('/api/delegate/product', DelegateController.addProduct);
+app.get('/api/delegate/:delegateId', DelegateController.getDelegateProfile);
+app.put('/api/delegate/profile', DelegateController.updateProfile);
+
 // Pricing Example Route
 app.post('/api/pricing/calculate', async (req, res) => {
   try {
