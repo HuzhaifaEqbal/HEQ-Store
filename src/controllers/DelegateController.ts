@@ -45,7 +45,7 @@ export class DelegateController {
    */
   static async getDelegateProfile(req: Request, res: Response): Promise<void> {
     try {
-      const { delegateId } = req.params;
+      const delegateId = req.params.delegateId as string;
 
       const profile = await prisma.delegateProfile.findUnique({
         where: { userId: delegateId },
