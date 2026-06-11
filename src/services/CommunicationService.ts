@@ -1,26 +1,34 @@
-import { Resend } from 'resend';
 import { PrismaClient } from '@prisma/client';
+import nodemailer from 'nodemailer';
 
 const prisma = new PrismaClient();
-const resend = new Resend(process.env.RESEND_API_KEY || 're_mock_key');
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER, // e.g. heq.store.sy@gmail.com
+    pass: process.env.GMAIL_APP_PASSWORD, // 16-character App Password
+  },
+});
 
 export class CommunicationService {
   /**
-   * Send an HTML Email using Resend
+   * Universal method to send emails
    */
   static async sendEmail(to: string[], subject: string, htmlContent: string): Promise<void> {
     try {
       console.log(`[DEBUG] Attempting to send email to ${to} with subject: ${subject}`);
       
-      const response = await resend.emails.send({
-        from: 'Hajeen Platform <noreply@hajeen.com>', // Reverted back to the verified domain
-        to,
+      const mailOptions = {
+        from: `"HEQ Store" <${process.env.GMAIL_USER}>`,
+        to: to.join(', '),
         subject,
         html: htmlContent,
-      });
-      console.log(`Email sent via Resend successfully! Response ID:`, response.data?.id);
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`Email sent via Gmail successfully! Message ID:`, info.messageId);
     } catch (error) {
-      console.error('Failed to send email via Resend:', error);
+      console.error('Failed to send email via Gmail:', error);
       // We don't throw error to not break the registration flow during dev testing
     }
   }
