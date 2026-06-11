@@ -1,10 +1,53 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { TelegramBotService } from '../services/TelegramBotService';
 
 const prisma = new PrismaClient();
 
 export class DelegateController {
   
+  /**
+   * Delegate submits KYC to create a new profile
+   */
+  static async createProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId, storeName, storeDescription, gpsLocation, storeAddress, signatureUrl } = req.body;
+
+      // Check if user exists
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      // Check if profile already exists
+      const existing = await prisma.delegateProfile.findUnique({ where: { userId } });
+      if (existing) {
+        res.status(400).json({ error: 'Delegate profile already exists' });
+        return;
+      }
+
+      const newProfile = await prisma.delegateProfile.create({
+        data: {
+          userId,
+          storeName,
+          storeDescription,
+          gpsLocation,
+          storeAddress,
+          signatureUrl
+        }
+      });
+
+      // Notify Admin via Telegram
+      await TelegramBotService.notifyNewDelegate(storeName, user.fullName);
+
+      res.status(201).json({ message: 'Delegate profile created successfully. Pending admin approval.', profile: newProfile });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
   /**
    * Delegate adds a new product
    */
