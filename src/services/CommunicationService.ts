@@ -10,11 +10,10 @@ export class CommunicationService {
    */
   static async sendEmail(to: string[], subject: string, htmlContent: string): Promise<void> {
     try {
-      // NOTE: We print a debug hint in case Resend fails so the dev can still test OTP
       console.log(`[DEBUG] Attempting to send email to ${to} with subject: ${subject}`);
       
       const response = await resend.emails.send({
-        from: 'onboarding@resend.dev', // Default testing email for Resend
+        from: 'Hajeen Platform <noreply@hajeen.com>', // Reverted back to the verified domain
         to,
         subject,
         html: htmlContent,
