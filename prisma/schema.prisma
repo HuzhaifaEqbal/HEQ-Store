@@ -10,6 +10,7 @@ datasource db {
 
 enum Role {
   USER
+  DELEGATE
   ADMIN
 }
 
@@ -22,78 +23,155 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum EscrowStatus {
+  HELD        // الأموال محتجزة لدى التطبيق
+  RELEASED    // تم تسليم الأموال للمندوب
+  REFUNDED    // تم إعادة الأموال للزبون
+  DISPUTED    // هناك خلاف يحل من قبل الآدمن
+}
+
 model User {
   id             String    @id @default(uuid())
   googleSsoId    String?   @unique
   email          String    @unique
-  passwordHash   String?   // Nullable for Google SSO users
+  passwordHash   String?
   fullName       String
   phone          String?
   address        String?
   avatar         String?
   role           Role      @default(USER)
+  
+  // Security & OTP
   isEmailVerified Boolean  @default(false)
   otpCode        String?
   otpExpiresAt   DateTime?
   otpType        String?   // "REGISTER", "RESET", "DELETE"
+  
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   isDeleted      Boolean   @default(false)
   deletedAt      DateTime?
 
   // Relations
-  orders         Order[]
-  notifications  Notification[]
+  orders             Order[]
+  notifications      Notification[]
+  delegateProfile    DelegateProfile?
+  wallet             Wallet?
+  escrowPurchases    EscrowTransaction[] @relation("BuyerEscrow")
+  products           Product[]           @relation("ProductOwner")
 }
 
-// Singleton table for math config and system variables
+// ----------------------------------------
+// DELEGATE & WALLET SYSTEM
+// ----------------------------------------
+
+model DelegateProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  storeName        String
+  storeDescription String?
+  rating           Float    @default(0.0)
+  totalSales       Int      @default(0)
+  isVerified       Boolean  @default(false) // Admin must verify delegates
+  deliveryRules    String?  // شروط التوصيل الخاصة بالمندوب
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id])
+}
+
+model Wallet {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  balanceSyp  Float    @default(0.0) // الرصيد المتاح القابل للسحب أو الشراء
+  heldSyp     Float    @default(0.0) // الرصيد المحتجز (قيد الوساطة)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id])
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  walletId    String
+  amountSyp   Float
+  type        String   // "DEPOSIT", "WITHDRAWAL", "ESCROW_HOLD", "ESCROW_RELEASE", "REFUND"
+  description String?
+  createdAt   DateTime @default(now())
+
+  wallet      Wallet   @relation(fields: [walletId], references: [id])
+}
+
+model EscrowTransaction {
+  id          String       @id @default(uuid())
+  orderId     String       @unique
+  buyerId     String
+  delegateId  String
+  amountSyp   Float
+  status      EscrowStatus @default(HELD)
+  createdAt   DateTime     @default(now())
+  releasedAt  DateTime?
+
+  buyer       User         @relation("BuyerEscrow", fields: [buyerId], references: [id])
+  order       Order        @relation(fields: [orderId], references: [id])
+}
+
+// ----------------------------------------
+// SHOP CORE
+// ----------------------------------------
+
 model AppSettings {
   id                    Int      @id @default(1)
-  usdToSypRate          Float    // e.g. 15000
-  customsPercentage     Float    // e.g. 0.15 (15%)
-  shippingCostPerKg     Float    // e.g. 25.0 USD
-  expectedTransitDays   Int      // e.g. 14 days
+  usdToSypRate          Float
+  customsPercentage     Float
+  shippingCostPerKg     Float
+  expectedTransitDays   Int
   orderProcessingDays   Int      @default(2)
-  profitMarginFixed     Float    @default(0.0) // Fixed amount added to final price
-  profitMarginPercent   Float    @default(0.0) // Percentage added to final price
+  profitMarginFixed     Float    @default(0.0)
+  profitMarginPercent   Float    @default(0.0)
   updatedAt             DateTime @updatedAt
 }
 
 model Product {
-  id             String   @id @default(uuid())
-  nameEn         String
-  nameAr         String
-  descriptionEn  String?
-  descriptionAr  String?
-  sourcePriceUsd Float
-  weightKg       Float
-  images         String[]
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(uuid())
+  nameEn            String
+  nameAr            String
+  descriptionEn     String?
+  descriptionAr     String?
+  sourcePriceUsd    Float
+  weightKg          Float
+  images            String[]
+  isActive          Boolean  @default(true)
+  
+  // Delegate specific
+  isDelegateProduct Boolean  @default(false)
+  ownerId           String?  // Null means it's owned by HEQ Store officially
 
-  // Relations
-  orderItems     OrderItem[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  owner             User?    @relation("ProductOwner", fields: [ownerId], references: [id])
+  orderItems        OrderItem[]
 }
 
 model Order {
   id                   String      @id @default(uuid())
   userId               String
   status               OrderStatus @default(PENDING)
-  totalPriceSyp        Float       // Snapshot of final price at time of purchase
-  totalPriceUsd        Float       // Original total in USD
+  totalPriceSyp        Float
+  totalPriceUsd        Float
   estimatedDeliveryDate DateTime
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
-  // Mathematical Snapshot (Preserved to prevent historical data changes if AppSettings change)
   appliedUsdToSypRate      Float
   appliedCustomsPercentage Float
   appliedShippingCostPerKg Float
 
-  // Relations
   user                 User        @relation(fields: [userId], references: [id])
   items                OrderItem[]
+  escrow               EscrowTransaction?
 }
 
 model OrderItem {
@@ -102,12 +180,10 @@ model OrderItem {
   productId       String
   quantity        Int
   
-  // Snapshots for this specific item
   priceUsd        Float
   priceSyp        Float
   weightKg        Float
 
-  // Relations
   order           Order    @relation(fields: [orderId], references: [id])
   product         Product  @relation(fields: [productId], references: [id])
 }
@@ -119,10 +195,9 @@ model Notification {
   titleAr     String
   bodyEn      String
   bodyAr      String
-  htmlContent String?  // Rich HTML/Card notification payload (or JSON UI block)
+  htmlContent String?
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  // Relations
   user        User     @relation(fields: [userId], references: [id])
 }
