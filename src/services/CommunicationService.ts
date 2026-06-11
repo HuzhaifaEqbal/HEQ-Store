@@ -1,15 +1,20 @@
 import { PrismaClient } from '@prisma/client';
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Fix for Render's broken IPv6 outbound routing (ENETUNREACH)
+dns.setDefaultResultOrder('ipv4first');
 
 const prisma = new PrismaClient();
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
   auth: {
     user: process.env.GMAIL_USER, // e.g. heq.store.sy@gmail.com
     pass: process.env.GMAIL_APP_PASSWORD, // 16-character App Password
   },
 });
-
 export class CommunicationService {
   /**
    * Universal method to send emails
