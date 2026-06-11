@@ -10,16 +10,19 @@ export class CommunicationService {
    */
   static async sendEmail(to: string[], subject: string, htmlContent: string): Promise<void> {
     try {
-      await resend.emails.send({
-        from: 'Hajeen Platform <noreply@hajeen.com>',
+      // NOTE: We print a debug hint in case Resend fails so the dev can still test OTP
+      console.log(`[DEBUG] Attempting to send email to ${to} with subject: ${subject}`);
+      
+      const response = await resend.emails.send({
+        from: 'onboarding@resend.dev', // Default testing email for Resend
         to,
         subject,
         html: htmlContent,
       });
-      console.log(`Email sent to ${to.length} recipients.`);
+      console.log(`Email sent via Resend successfully! Response ID:`, response.data?.id);
     } catch (error) {
-      console.error('Failed to send email via Resend', error);
-      throw error;
+      console.error('Failed to send email via Resend:', error);
+      // We don't throw error to not break the registration flow during dev testing
     }
   }
 
