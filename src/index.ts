@@ -25,9 +25,19 @@ app.post('/api/escrow/refund', EscrowController.refundFunds);
 app.post('/api/wallet/deposit', EscrowController.depositToWallet);
 
 // Delegate Routes
+app.post('/api/delegate/register', DelegateController.createProfile);
 app.post('/api/delegate/product', DelegateController.addProduct);
 app.get('/api/delegate/:delegateId', DelegateController.getDelegateProfile);
 app.put('/api/delegate/profile', DelegateController.updateProfile);
+
+import { AdminController } from './controllers/AdminController';
+
+// Admin Routes
+app.get('/api/admin/orders', AdminController.getAllOrders);
+app.put('/api/admin/orders/:id/status', AdminController.updateOrderStatus);
+app.put('/api/admin/orders/:id/tracking', AdminController.updateTracking);
+app.get('/api/admin/delegates/pending', AdminController.getPendingDelegates);
+app.put('/api/admin/delegates/:id/verify', AdminController.verifyDelegate);
 
 // Pricing Example Route
 app.post('/api/pricing/calculate', async (req, res) => {
