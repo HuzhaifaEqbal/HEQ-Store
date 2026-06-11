@@ -34,7 +34,7 @@ export class AdminController {
 
   static async updateOrderStatus(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { status } = req.body; // e.g. "PURCHASED", "SHIPPED_JORDAN", etc.
 
       if (!Object.values(OrderStatus).includes(status)) {
@@ -56,15 +56,17 @@ export class AdminController {
 
   static async updateTracking(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
-      const { jordanTrackingNumber, syriaTrackingNumber } = req.body;
+      const id = req.params.id as string;
+      const jordanTrackingNumber = req.body.jordanTrackingNumber as string | undefined;
+      const syriaTrackingNumber = req.body.syriaTrackingNumber as string | undefined;
+
+      const dataToUpdate: any = {};
+      if (jordanTrackingNumber !== undefined) dataToUpdate.jordanTrackingNumber = jordanTrackingNumber;
+      if (syriaTrackingNumber !== undefined) dataToUpdate.syriaTrackingNumber = syriaTrackingNumber;
 
       const updatedOrder = await prisma.order.update({
         where: { id },
-        data: {
-          ...(jordanTrackingNumber !== undefined && { jordanTrackingNumber }),
-          ...(syriaTrackingNumber !== undefined && { syriaTrackingNumber }),
-        }
+        data: dataToUpdate
       });
 
       res.status(200).json({ message: 'Tracking updated', order: updatedOrder });
@@ -97,7 +99,7 @@ export class AdminController {
 
   static async verifyDelegate(req: Request, res: Response): Promise<void> {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { approve } = req.body; // boolean
 
       if (approve) {
