@@ -51,6 +51,7 @@ export class AuthController {
       const passwordHash = await bcrypt.hash(password, 10);
       const otpCode = generateOTP();
       const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+      console.log(`[DEBUG - DEV ONLY] OTP generated for ${email}: ${otpCode}`);
 
       await prisma.user.create({
         data: {
