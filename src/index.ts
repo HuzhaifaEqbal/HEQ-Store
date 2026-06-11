@@ -3,7 +3,7 @@ import { AuthController } from './controllers/AuthController';
 import { PricingAndLogisticsService } from './services/PricingAndLogisticsService';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Auth Routes
 app.post('/api/auth/register', AuthController.register);
