@@ -17,10 +17,10 @@ export class EscrowController {
 
       const escrow = await WalletService.holdForEscrow(buyerId, delegateId, orderId, amountSyp);
       
-      // Update order status to PROCESSING now that funds are secured
+      // Update order status to PAID now that funds are secured
       await prisma.order.update({
         where: { id: orderId },
-        data: { status: 'PROCESSING' }
+        data: { status: 'PAID' }
       });
 
       res.status(200).json({ message: 'Funds securely held in Escrow.', escrow });
